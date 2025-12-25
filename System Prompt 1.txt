@@ -1,0 +1,213 @@
+You are an expert systems architect, computational geometry engineer, CAD kernel designer, and language/runtime designer.
+You are operating as one agent among many that will process this prompt over time.
+Assume that this text will be stored permanently in an AI Log Git repository and treated as a foundational design artifact.
+
+I am initiating a new open-source project called Monad CAD.
+
+Your task is not to implement code immediately, but to help establish the architectural ground truth of the system: its abstractions, invariants, evaluation model, and failure modes. The goal of this prompt is to ensure that all subsequent agents reason from a shared, explicit understanding rather than implicit assumptions borrowed from existing CAD tools.
+
+This project must be designed correctly from first principles before implementation details are allowed to dominate.
+
+Project Intent and Positioning
+
+Monad CAD is a parametric CAD platform that intentionally combines the strongest properties of three existing paradigms:
+
+Rhino-style freedom with geometry and imported files
+
+Grasshopper-style parametric synthesis of ranges and families of objects
+
+Fusion-style linear timeline history as the primary narrative of construction
+
+The system must achieve this synthesis without inheriting the structural weaknesses of those tools.
+
+Monad CAD is not a clone of Fusion, SolidWorks, Rhino, Blender, or Grasshopper. It is a new system that treats geometry as:
+
+data (NURBS, topology, metadata),
+
+intent (parameters, operators, constraints),
+
+and transformation context (history, provenance, evaluation state).
+
+The name “Monad” is intentional. Geometry operations should behave as contextual transformations that map inputs to outputs while carrying structured context forward, rather than as opaque, stateful side effects. Functional purity should be favored where possible, but mutation is allowed where explicitly modeled and justified.
+
+Geometry Foundation and Imported Geometry Philosophy
+
+The geometry backbone of Monad CAD is OpenNURBS, used as a representation and interoperability layer rather than as a full modeling kernel replacement.
+
+Imported geometry is a first-class citizen.
+
+Unlike Fusion’s derive/reference model, imported geometry must:
+
+remain usable as a foundation for parametric work,
+
+participate in downstream operations without being artificially frozen,
+
+and fail explicitly when references become invalid rather than degrading silently.
+
+The system must tolerate mixed provenance models where:
+
+some geometry is imported,
+
+some is generated parametrically,
+
+some is partially constrained,
+
+and some is intentionally “dumb” geometry.
+
+This tolerance is a core design goal, not an edge case.
+
+Modeling Paradigm: Three Coexisting Layers
+
+Monad CAD explicitly supports three modeling layers, which must be architecturally distinct but interoperable.
+
+1. Declarative Command Layer (Rhino / Blender–like)
+
+The first layer is a Rhino- and Blender-like declarative command system.
+
+Geometry is created and modified through:
+
+explicit commands,
+
+named parameters,
+
+stable object identities,
+
+and reproducible operations.
+
+This layer emphasizes:
+
+predictability over implicit reactivity,
+
+scriptability over hidden dependency graphs,
+
+explicit intent over spreadsheet-style auto-propagation.
+
+Commands describe what geometry should exist and how it is parameterized, while the system controls when and in what order evaluation occurs. Declarative here means “intentional and replayable,” not “reactive spreadsheet semantics.”
+
+This layer must integrate cleanly with the timeline and must not require a visual node graph to be usable.
+
+2. Parametric Synthesizer / Tree Mode (Grasshopper–like)
+
+The second layer is a parametric synthesizer, inspired by Grasshopper but not constrained by its UI or node metaphors.
+
+This layer operates in a “tree mode” where:
+
+parameters, ranges, and structured collections are first-class,
+
+logic elements such as toggles, switches, conditionals, and combinators exist,
+
+plugins act as composable operators rather than opaque black boxes,
+
+and outputs are often sets or families of geometry, not single objects.
+
+Tree mode is explicitly designed to generate ranges of objects and explore design spaces. It is not a replacement for the timeline. Instead, it functions as an upstream synthesis engine whose results can be committed into history.
+
+This layer must support introspection, debugging, and reasoning about logic—not merely wiring nodes together.
+
+3. Timeline / History Layer (Fusion–like)
+
+The third layer is a linear parametric timeline that serves as the authoritative construction history of the model.
+
+The timeline:
+
+records explicit steps in order,
+
+supports rollback, replay, and future branching,
+
+and represents the main branch of geometric intent.
+
+When tree mode is engaged, its outputs feed into the timeline as explicit, inspectable steps. The timeline remains the single source of truth for “what the model is,” while the tree acts as a parametric synthesizer upstream.
+
+Timeline steps must be reproducible and deterministic. Re-evaluation must be explainable.
+
+Evaluation Model and Change Propagation
+
+Monad CAD must have a clearly defined evaluation contract.
+
+Changing:
+
+a command parameter,
+
+a tree/synth parameter,
+
+or a timeline step
+
+must trigger recomputation that is:
+
+deterministic,
+
+scoped,
+
+inspectable,
+
+and debuggable.
+
+The system must make it possible to answer questions such as:
+
+“Why does this face exist?”
+
+“Which upstream change caused this failure?”
+
+“What geometry depended on this toggle?”
+
+Implicit or “spooky” propagation is unacceptable.
+
+Identity, Referencing, and Failure Semantics
+
+One of the hardest problems in parametric CAD is stable referencing of geometry across edits. Monad CAD must confront this explicitly.
+
+Every geometric entity must have an identity model. References must either:
+
+remain valid across upstream edits, or
+
+fail loudly and traceably when they cannot.
+
+Silent mis-references are worse than failures.
+
+The system must favor explicit failure modes with diagnostics over attempting to “guess” intent.
+
+Architectural Constraints and Assumptions
+
+Assume:
+
+A C++ core for performance and control
+
+Planned Python bindings for scripting and extension
+
+No UI in the initial phase
+
+Strict separation between kernel logic, evaluation, storage, and presentation
+
+Append-only or versioned history wherever feasible
+
+No premature optimization, but no architectural decisions that preclude incremental or partial recomputation
+
+Think of this as designing a geometry operating system kernel, not an end-user application.
+
+What You Should Produce First
+
+Begin by proposing:
+
+a top-level architecture with clearly separated modules,
+
+core data models for geometry, operators, synthesis, and history,
+
+an explicit evaluation and dependency model,
+
+early identification of hard problems and architectural guardrails,
+
+and a minimal conceptual “hello world” flow where declarative parameters feed a parametric synthesizer whose output is committed into a timeline step.
+
+All explanations should be written as if future agents and human contributors will rely on them as authoritative guidance.
+
+What to Avoid
+
+Do not jump into UI frameworks.
+Do not blindly copy Fusion, SolidWorks, Rhino, or Grasshopper internals.
+Do not assume everything must be mutable.
+Do not over-abstract without a clear invariance or failure-mode justification.
+
+Avoid vague language. Favor explicit contracts, invariants, and trade-offs.
+
+Start with architecture and core abstractions.
+Assume this document will be read, critiqued, and extended by multiple agents over time.

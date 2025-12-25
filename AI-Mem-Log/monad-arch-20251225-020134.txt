@@ -1,0 +1,142 @@
+Monad CAD Architectural Ground Truth (v0)
+
+Purpose
+Define the core architecture, data models, evaluation contract, and failure modes for Monad CAD. This document is authoritative for early system design and must be preserved verbatim in history.
+
+Top-Level Architecture (Modules)
+1) Kernel.Core
+- Low-level geometry primitives and operations (OpenNURBS-backed).
+- Deterministic, pure-by-default operators with explicit context input/output.
+- No evaluation scheduling, no history, no UI.
+
+2) Kernel.Model
+- Data models for geometry instances, topology, metadata, identity, and provenance.
+- Explicit identity graph and reference resolution rules.
+- Serialization and versioned storage schema (append-only records).
+
+3) Kernel.Operators
+- Declarative command library and parameter schema.
+- Operator contracts, input/output typing, and validation.
+- Operator execution is side-effect free unless declared.
+
+4) Synth.Tree
+- Parametric synthesizer: trees, ranges, combinators, conditionals, families.
+- Produces sets of geometry or operator specs, not kernel state.
+- Debugging/introspection surfaces for dependency and value tracing.
+
+5) History.Timeline
+- Linear, ordered history of explicit steps (operator invocations + inputs + outputs).
+- Branching, rollback, replay, and deterministic re-evaluation.
+- Stores evaluation results and failure records per step.
+
+6) Eval.Engine
+- Dependency graph extraction from timeline + tree inputs.
+- Incremental recomputation, scoping, and invalidation policy.
+- Diagnostics pipeline and explainability queries.
+
+7) Storage.Repository
+- Versioned, append-only storage of geometry, operator specs, provenance, and evaluation artifacts.
+- Content-addressable blobs for geometry; identity map for stable references.
+
+8) API.Bindings
+- Python bindings over Model/Operators/Timeline with explicit context passing.
+- No implicit global state; session/context must be provided.
+
+Core Data Models
+GeometryEntity
+- Fields: entity_id (stable), geom_blob_ref (OpenNURBS), topology_id, metadata, provenance_id.
+- Invariant: entity_id is stable across edits unless explicitly re-created.
+- Failure: if geom_blob_ref missing, evaluation fails with MissingGeometryBlob.
+
+Provenance
+- Fields: source_type (imported/parametric/generated), source_ref, timestamp, operator_chain.
+- Invariant: provenance is immutable once recorded.
+- Failure: if source_ref missing, mark provenance as orphaned and raise OrphanedSource.
+
+OperatorSpec
+- Fields: operator_id, name, version, inputs (typed), params, declared_side_effects.
+- Invariant: identical inputs + params + operator version => identical outputs.
+- Failure: invalid param or type mismatch => OperatorValidationError.
+
+TimelineStep
+- Fields: step_id, order_index, operator_spec, input_refs, output_refs, status, diagnostics.
+- Invariant: steps are append-only; edits create new step versions, not in-place mutation.
+- Failure: invalidated refs => StepInvalidated with dependency chain.
+
+SynthNode
+- Fields: node_id, op, inputs, outputs, tree_context.
+- Invariant: tree evaluation is deterministic given inputs.
+- Failure: nondeterminism detected => TreeNondeterministicError.
+
+Reference
+- Fields: ref_id, target_entity_id, target_topology_path, resolution_rules.
+- Invariant: references either resolve exactly or fail; never auto-guess.
+- Failure: ambiguous or missing targets => ReferenceResolutionError.
+
+Evaluation and Dependency Model (Contract)
+- Deterministic: The same inputs, operator versions, and context yield identical results.
+- Scoped recomputation: Only affected steps/nodes are recomputed; unaffected results are reused.
+- Explainable: Every output can be traced to upstream inputs, operators, and parameters.
+- Inspectable failures: All failures emit structured diagnostics with dependency chains.
+
+Dependency Extraction
+- Each timeline step declares input refs and produces output refs.
+- Tree nodes declare parameter dependencies and upstream nodes.
+- Eval.Engine constructs a DAG: Tree DAG feeds Timeline linear chain.
+
+Change Propagation
+- Param change in command layer: invalidate steps using those params; recompute in order.
+- Param change in tree: recompute affected subtrees; recompute dependent timeline steps.
+- Timeline edits: invalidate downstream steps; preserve upstream cached results.
+
+Identity, Referencing, Failure Semantics
+- Identity is explicit and versioned: entity_id is stable; geometry blobs are immutable.
+- References are explicit and strict: resolve by entity_id + topology path.
+- If upstream edits break a reference, evaluation fails loudly with diagnostics.
+- No silent remapping of faces/edges; user must explicitly repair references.
+
+Imported Geometry Rules
+- Imported geometry is first-class: can be referenced, combined, and parameterized.
+- Imported entities retain provenance and can be revalidated on import updates.
+- If an import changes, dependent steps fail if references no longer resolve.
+
+Hard Problems and Guardrails
+1) Topology instability
+- Guardrail: Never auto-match topology changes; require explicit rebind.
+- Diagnostic must show previous vs current topology paths.
+
+2) Mixed provenance
+- Guardrail: Uniform reference model; imported/parametric treated identically in references.
+- Failure if import becomes missing or shape changes invalidate refs.
+
+3) Nondeterminism from plugins
+- Guardrail: Operators must declare determinism; nondeterministic ops are flagged and isolated.
+- Timeline steps with nondeterministic ops are marked non-reproducible.
+
+4) Partial recomputation correctness
+- Guardrail: Strict dependency graph; no hidden globals.
+- Eval.Engine refuses to skip recomputation if dependency metadata is incomplete.
+
+5) State leakage
+- Guardrail: All operator evaluation is pure unless declared side effects.
+- Side effects are sandboxed and logged; no kernel state mutation without explicit modeling.
+
+Minimal Conceptual "Hello World" Flow
+1) Declarative command: Create a parameterized line with length L.
+2) Tree synth: Range of L in [10, 20, 30]; map CreateLine(L) -> set of lines.
+3) Commit: Select the line set and commit as a TimelineStep "CreateLinesFromRange".
+4) Timeline evaluation: Kernel creates geometry blobs for each line, stores entities, outputs refs.
+5) Change: Update range to [10, 15, 20]; tree recomputes, timeline step invalidates and replays.
+6) Explainability query: "Why does this line exist?" -> traced to range entry L=15 at SynthNode X and TimelineStep Y.
+
+Explicit Non-Goals (Early Phase)
+- UI/viewport design.
+- Implicit sketch constraint solving beyond basic explicit constraints.
+- Auto-healing or guessing of topology references.
+
+Open Questions (To Track, Not to Solve Here)
+- How to encode topology paths in a stable, human-auditable format.
+- Extent of OpenNURBS limitations and required extensions.
+- Granularity of identity: entity vs sub-entity (face/edge) lifecycle model.
+
+End of Document
